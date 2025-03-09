@@ -14,8 +14,6 @@
         input, button, select { margin: 5px 0; padding: 10px; }
         .list-container { margin-top: 20px; text-align: left; padding: 10px; }
         .mascota { border: 1px solid #ccc; background: white; padding: 10px; margin-bottom: 10px; border-radius: 5px; box-shadow: 0px 2px 4px rgba(0,0,0,0.1); }
-        
-        .dark-mode .mascota { background: #333; border-color: #555; }
         .share-buttons { margin-top: 10px; }
     </style>
 </head>
@@ -26,11 +24,10 @@
         <input type="text" id="nombre" placeholder="Tu Nombre" required>
         <input type="file" id="foto" accept="image/*" required>
         <input type="text" id="direccion" placeholder="Dirección" required>
-        <input type="text" id="telefono" placeholder="Teléfono" required>
+        <input type="text" id="telefono" placeholder="Teléfono (sin 0 ni 15)" required>
         <select id="estado">
             <option value="perdido">Perdido</option>
             <option value="encontrado">Encontrado</option>
-            <option value="recuperado">Recuperado</option>
         </select>
         <button type="submit">Agregar</button>
     </form>
@@ -42,42 +39,51 @@
         const map = L.map('map').setView([-38.7169, -62.2669], 12);
         L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png').addTo(map);
 
-        
-
         document.getElementById('mascotaForm').addEventListener('submit', async function(event) {
             event.preventDefault();
-            const nombre = document.getElementById('nombre').value;
-            const direccion = document.getElementById('direccion').value;
-            const telefono = document.getElementById('telefono').value;
+            const nombre = document.getElementById('nombre').value.trim();
+            const direccion = document.getElementById('direccion').value.trim();
+            let telefono = document.getElementById('telefono').value.trim();
             const estado = document.getElementById('estado').value;
             const fotoInput = document.getElementById('foto');
             
             if (!fotoInput.files.length) return alert("Sube una foto");
             
-            const reader = new FileReader();
-            reader.readAsDataURL(fotoInput.files[0]);
-            reader.onload = async function () {
-                const fotoURL = reader.result;
+            // Validación de teléfono
+            telefono = telefono.replace(/[^0-9]/g, '');
+            if (telefono.length < 6 || telefono.length > 10) {
+                return alert("Formato de teléfono incorrecto. Debe ser sin 0 y sin 15.");
+            }
+            
+            const file = fotoInput.files[0];
+            const formData = new FormData();
+            formData.append("file", file);
+            formData.append("upload_preset", "mascotas_upload"); // Reemplaza con tu preset de Cloudinary
+
+            try {
+                const uploadResponse = await fetch("https://api.cloudinary.com/v1_1/TU_CLOUD_NAME/image/upload", {
+                    method: "POST",
+                    body: formData
+                });
+                const uploadResult = await uploadResponse.json();
+                const fotoURL = uploadResult.secure_url;
                 
-                try {
-                    const geoResponse = await axios.get(`https://nominatim.openstreetmap.org/search?format=json&q=${direccion}, Bahia Blanca, Argentina`);
-                    const { lat, lon } = geoResponse.data[0] || { lat: -38.7169, lon: -62.2669 };
-                    
-                    let color;
-                    if (estado === 'perdido') color = 'red';
-                    else if (estado === 'encontrado') color = 'green';
-                    else if (estado === 'recuperado') color = 'blue';
-                    
-                    const marker = L.marker([lat, lon]).addTo(map).bindPopup(
-                        `<strong>${nombre}</strong><br>${direccion}<br>Tel: ${telefono}<br>Estado: ${estado}<br><img src="${fotoURL}" width="150">`
-                    );
-                    
-                    mascotas.push({ nombre, direccion, telefono, estado, marker, fotoURL });
-                    actualizarLista();
-                } catch (error) {
-                    alert("No se pudo geolocalizar la dirección, verifica e intenta nuevamente.");
+                const geoResponse = await axios.get(`https://nominatim.openstreetmap.org/search?format=json&q=${direccion}, Bahia Blanca, Argentina`);
+                if (!geoResponse.data.length) {
+                    return alert("No se pudo encontrar la dirección, intenta con otra.");
                 }
-            };
+                const { lat, lon } = geoResponse.data[0];
+                
+                let color = estado === 'perdido' ? 'red' : 'green';
+                const marker = L.marker([lat, lon]).addTo(map).bindPopup(
+                    `<strong>${sanitize(nombre)}</strong><br>${sanitize(direccion)}<br>Tel: ${sanitize(telefono)}<br>Estado: ${sanitize(estado)}<br><img src="${fotoURL}" width="150">`
+                );
+                
+                mascotas.push({ nombre, direccion, telefono, estado, marker, fotoURL });
+                actualizarLista();
+            } catch (error) {
+                alert("Error al subir la imagen o geolocalizar la dirección: " + error.message);
+            }
         });
 
         function actualizarLista() {
@@ -86,9 +92,15 @@
             mascotas.forEach(mascota => {
                 const div = document.createElement('div');
                 div.classList.add('mascota');
-                div.innerHTML = `<strong>${mascota.nombre}</strong><br>${mascota.direccion}<br>Tel: ${mascota.telefono}<br>Estado: ${mascota.estado}<br><img src="${mascota.fotoURL}" width="100">`;
+                div.innerHTML = `<strong>${sanitize(mascota.nombre)}</strong><br>${sanitize(mascota.direccion)}<br>Tel: ${sanitize(mascota.telefono)}<br>Estado: ${sanitize(mascota.estado)}<br><img src="${mascota.fotoURL}" width="100">`;
                 lista.appendChild(div);
             });
+        }
+        
+        function sanitize(text) {
+            const div = document.createElement('div');
+            div.innerText = text;
+            return div.innerHTML;
         }
     </script>
 </body>
