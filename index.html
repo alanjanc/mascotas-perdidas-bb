@@ -15,6 +15,7 @@
         .list-container { margin-top: 20px; text-align: left; padding: 10px; }
         .mascota { border: 1px solid #ccc; background: white; padding: 10px; margin-bottom: 10px; border-radius: 5px; box-shadow: 0px 2px 4px rgba(0,0,0,0.1); }
         .share-buttons { margin-top: 10px; }
+        .popup-image { cursor: pointer; }
     </style>
 </head>
 <body>
@@ -49,7 +50,6 @@
             
             if (!fotoInput.files.length) return alert("Sube una foto");
             
-            // Validación de teléfono
             telefono = telefono.replace(/[^0-9]/g, '');
             if (telefono.length < 6 || telefono.length > 10) {
                 return alert("Formato de teléfono incorrecto. Debe ser sin 0 y sin 15.");
@@ -58,7 +58,7 @@
             const file = fotoInput.files[0];
             const formData = new FormData();
             formData.append("file", file);
-            formData.append("upload_preset", "mascotas_upload"); // Reemplaza con tu preset de Cloudinary
+            formData.append("upload_preset", "mascotas_upload");
 
             try {
                 const uploadResponse = await fetch("https://api.cloudinary.com/v1_1/dtiiaq1oh/image/upload", {
@@ -76,7 +76,8 @@
                 
                 let color = estado === 'perdido' ? 'red' : 'green';
                 const marker = L.marker([lat, lon]).addTo(map).bindPopup(
-                    `<strong>${sanitize(nombre)}</strong><br>${sanitize(direccion)}<br>Tel: ${sanitize(telefono)}<br>Estado: ${sanitize(estado)}<br><img src="${fotoURL}" width="150">`
+                    `<strong>${sanitize(nombre)}</strong><br>${sanitize(direccion)}<br>Tel: ${sanitize(telefono)}<br>Estado: ${sanitize(estado)}<br>
+                    <img src="${fotoURL}" width="100" class="popup-image" onclick="window.open('${fotoURL}', '_blank')">`
                 );
                 
                 mascotas.push({ nombre, direccion, telefono, estado, marker, fotoURL });
@@ -92,7 +93,8 @@
             mascotas.forEach(mascota => {
                 const div = document.createElement('div');
                 div.classList.add('mascota');
-                div.innerHTML = `<strong>${sanitize(mascota.nombre)}</strong><br>${sanitize(mascota.direccion)}<br>Tel: ${sanitize(mascota.telefono)}<br>Estado: ${sanitize(mascota.estado)}<br><img src="${mascota.fotoURL}" width="100">`;
+                div.innerHTML = `<strong>${sanitize(mascota.nombre)}</strong><br>${sanitize(mascota.direccion)}<br>Tel: ${sanitize(mascota.telefono)}<br>Estado: ${sanitize(mascota.estado)}<br>
+                <img src="${mascota.fotoURL}" width="100" class="popup-image" onclick="window.open('${mascota.fotoURL}', '_blank')">`;
                 lista.appendChild(div);
             });
         }
