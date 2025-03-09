@@ -1,0 +1,97 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Mascotas Perdidas y Encontradas</title>
+    <script src="https://unpkg.com/leaflet/dist/leaflet.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/axios/dist/axios.min.js"></script>
+    <link rel="stylesheet" href="https://unpkg.com/leaflet/dist/leaflet.css" />
+    <style>
+        body { font-family: Arial, sans-serif; text-align: center; background: #f4f4f4; }
+        #map { height: 400px; width: 100%; margin-top: 20px; }
+        form { background: white; padding: 20px; border-radius: 8px; margin: 20px auto; width: 320px; display: flex; flex-direction: column; box-shadow: 0px 4px 6px rgba(0,0,0,0.1); }
+        input, button, select { margin: 5px 0; padding: 10px; }
+        .list-container { margin-top: 20px; text-align: left; padding: 10px; }
+        .mascota { border: 1px solid #ccc; background: white; padding: 10px; margin-bottom: 10px; border-radius: 5px; box-shadow: 0px 2px 4px rgba(0,0,0,0.1); }
+        .dark-mode { background: #222; color: white; }
+        .dark-mode .mascota { background: #333; border-color: #555; }
+        .share-buttons { margin-top: 10px; }
+    </style>
+</head>
+<body>
+    <h1>Mascotas Perdidas y Encontradas</h1>
+    <button onclick="toggleDarkMode()">Modo Oscuro</button>
+    <form id="mascotaForm">
+        <input type="text" id="nombre" placeholder="Tu Nombre" required>
+        <input type="file" id="foto" accept="image/*" required>
+        <input type="text" id="direccion" placeholder="Dirección" required>
+        <input type="text" id="telefono" placeholder="Teléfono" required>
+        <select id="estado">
+            <option value="perdido">Perdido</option>
+            <option value="encontrado">Encontrado</option>
+            <option value="recuperado">Recuperado</option>
+        </select>
+        <button type="submit">Agregar</button>
+    </form>
+    <div id="map"></div>
+    <div class="list-container" id="mascotasList"></div>
+    
+    <script>
+        let mascotas = [];
+        const map = L.map('map').setView([-38.7169, -62.2669], 12);
+        L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png').addTo(map);
+
+        function toggleDarkMode() {
+            document.body.classList.toggle('dark-mode');
+        }
+
+        document.getElementById('mascotaForm').addEventListener('submit', async function(event) {
+            event.preventDefault();
+            const nombre = document.getElementById('nombre').value;
+            const direccion = document.getElementById('direccion').value;
+            const telefono = document.getElementById('telefono').value;
+            const estado = document.getElementById('estado').value;
+            const fotoInput = document.getElementById('foto');
+            
+            if (!fotoInput.files.length) return alert("Sube una foto");
+            
+            const reader = new FileReader();
+            reader.readAsDataURL(fotoInput.files[0]);
+            reader.onload = async function () {
+                const fotoURL = reader.result;
+                
+                try {
+                    const geoResponse = await axios.get(`https://nominatim.openstreetmap.org/search?format=json&q=${direccion}, Bahia Blanca, Argentina`);
+                    const { lat, lon } = geoResponse.data[0] || { lat: -38.7169, lon: -62.2669 };
+                    
+                    let color;
+                    if (estado === 'perdido') color = 'red';
+                    else if (estado === 'encontrado') color = 'green';
+                    else if (estado === 'recuperado') color = 'blue';
+                    
+                    const marker = L.marker([lat, lon]).addTo(map).bindPopup(
+                        `<strong>${nombre}</strong><br>${direccion}<br>Tel: ${telefono}<br>Estado: ${estado}<br><img src="${fotoURL}" width="150">`
+                    );
+                    
+                    mascotas.push({ nombre, direccion, telefono, estado, marker, fotoURL });
+                    actualizarLista();
+                } catch (error) {
+                    alert("No se pudo geolocalizar la dirección, verifica e intenta nuevamente.");
+                }
+            };
+        });
+
+        function actualizarLista() {
+            const lista = document.getElementById('mascotasList');
+            lista.innerHTML = '';
+            mascotas.forEach(mascota => {
+                const div = document.createElement('div');
+                div.classList.add('mascota');
+                div.innerHTML = `<strong>${mascota.nombre}</strong><br>${mascota.direccion}<br>Tel: ${mascota.telefono}<br>Estado: ${mascota.estado}<br><img src="${mascota.fotoURL}" width="100">`;
+                lista.appendChild(div);
+            });
+        }
+    </script>
+</body>
+</html>
